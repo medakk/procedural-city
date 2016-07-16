@@ -6,7 +6,8 @@ import City
 data Args = Args
     {   width :: Int
       , height :: Int
-      , depth :: Int }
+      , depth :: Int 
+      , mesh :: Bool }
 
 widthParser :: Parser Int
 widthParser = option auto
@@ -28,20 +29,28 @@ depthParser = option auto
               <> short 'd'
               <> metavar "DEPTH"
               <> help "Number of times to iterate" )
+
+meshParser :: Parser Bool
+meshParser = switch
+              (  long "mesh"
+              <> short 'm'
+              <> help "Whether or not to print only the meshes" )
  
 args :: Parser Args
 args = Args
     <$> widthParser
     <*> heightParser
     <*> depthParser
+    <*> meshParser
 
 printCity :: Args -> IO ()
-printCity (Args w h d) = do
+printCity (Args w h d m) = do
     putStr $ show w
     putStr " "
     putStr $ show h
     putStrLn ""
-    cityToStr <$> genCity (0, 0) (w, h) d >>= putStrLn
+    let strFunc = if m then cityMeshToStr else cityToStr
+    strFunc <$> genCity (0, 0) (w, h) d >>= putStrLn
 
 main :: IO ()
 main = execParser opts >>= printCity

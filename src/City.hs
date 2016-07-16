@@ -4,6 +4,7 @@ module City
     (
         genCity
       , cityToStr
+      , cityMeshToStr
     ) where
 
 -- import Data.Random.Normal (normalsIO)
@@ -144,6 +145,7 @@ cellToChar (Building ht)
 
 -- | Returns a character to print depending on the
 --   city's contents at a given point
+{--
 cityPosToChar
     :: City  -- ^ The city
     -> Vec2D -- ^ The point
@@ -154,6 +156,14 @@ cityPosToChar (City p1 p2 cell subcities) p =
         False -> if subcities==[]
                     then cellToChar cell
                     else cityPosToChar (cityContainingPoint subcities p) p
+--}
+cityPosToChar
+    :: City  -- ^ The city
+    -> Vec2D -- ^ The point
+    -> Char  -- ^ A character representation
+cityPosToChar (City p1 p2 cell []) p = cellToChar  cell
+cityPosToChar (City p1 p2 cell subcities) p =
+    cityPosToChar (cityContainingPoint subcities p) p
 
 -- | Splits a list every n elements
 splitEvery 
@@ -170,6 +180,22 @@ cityToStr
 cityToStr c@(City (x1,y1) (x2,y2) _ _)
     = intercalate "\n" $ splitEvery str (x2-x1+1)
     where str = (cityPosToChar c) <$> [(x,y) | x<-[x1..x2], y<-[y1..y2]]
+
+-- Converts a Vec2D to a string in the form "x y"
+vec2DToStr
+    :: Vec2D
+    -> String
+vec2DToStr (x, y) = show x ++ " " ++ show y
+
+-- | Converts a city to its meshed string representation
+--   mode
+cityMeshToStr
+    :: City   -- ^ The city
+    -> String -- ^ String mesh
+cityMeshToStr (City p1 p2 cell [])
+    = vec2DToStr p1 ++ " " ++ vec2DToStr p2 ++ " " ++ (cellToChar cell : "")
+cityMeshToStr (City _ _ _ subcities)
+    = intercalate "\n" $ fmap cityMeshToStr subcities
 
 -- | Generate and return a city
 genCity

@@ -2,10 +2,12 @@ import java.util.Scanner;
 import java.io.File;
 import peasy.*;
 
-final float CUBE_SIZE = 50f;
-final float GRASS_HEIGHT = 2f;
-final float ROAD_HEIGHT = 3.4f;
-final float WATER_DEPTH = 4f;
+final float CUBE_SIZE = 10f;
+final float GAP = CUBE_SIZE/3f;
+final float TOTAL_SIZE = CUBE_SIZE+GAP;
+final float GRASS_HEIGHT = CUBE_SIZE/10f;
+final float ROAD_HEIGHT = CUBE_SIZE/15f;
+final float WATER_HEIGHT = CUBE_SIZE/10f;
 
 class Cell {
     float x, y, z;
@@ -29,71 +31,85 @@ class Cell {
     }
 }
 
-PVector findCenter(Cell[][] cells) {
-    final int w = cells.length;
-    final int h = cells[0].length;
+PVector findCenter(ArrayList<Cell> cells) {
+    final float w = cells.get(0).w;
+    final float h = cells.get(0).h;
     
-    final Cell topLeft = cells[0][0];
-    final Cell bottomRight = cells[w-1][h-1];
+    return new PVector(w/2f, h/2f, 0f);
+}
+
+Cell grassBlock(float x1, float y1, float x2, float y2) {
+    final float w = (x2-x1)*CUBE_SIZE;
+    final float h = (y2-y1)*CUBE_SIZE;
+    final float mx = (x1+x2)/2f;
+    final float my = (y1+y2)/2f;
+    return new Cell(mx*TOTAL_SIZE, my*TOTAL_SIZE, GRASS_HEIGHT/2f, w, h, GRASS_HEIGHT, 35, 198, 87);
+}
+
+Cell waterBlock(float x1, float y1, float x2, float y2) {
+    final float w = (x2-x1)*CUBE_SIZE;
+    final float h = (y2-y1)*CUBE_SIZE;
+    final float mx = (x1+x2)/2f;
+    final float my = (y1+y2)/2f;
+    return new Cell(mx*TOTAL_SIZE, my*TOTAL_SIZE, WATER_HEIGHT/2f, w, h, WATER_HEIGHT, 60, 139, 238);
+}
+
+Cell buildingBlock(float x1, float y1, float x2, float y2, float d) {
+    final float w = (x2-x1)*CUBE_SIZE;
+    final float h = (y2-y1)*CUBE_SIZE;
+    final float mx = (x1+x2)/2f;
+    final float my = (y1+y2)/2f;
+
+    return new Cell(mx*TOTAL_SIZE, my*TOTAL_SIZE, CUBE_SIZE*d/2f, w, h, CUBE_SIZE*d, 176, 146, 208);
+}
+
+Cell roadBlock(float x1, float y1, float x2, float y2) {
+    final float w = (x2-x1)*TOTAL_SIZE;
+    final float h = (y2-y1)*TOTAL_SIZE;
+    final float mx = (x1+x2)/2f;
+    final float my = (y1+y2)/2f;
+    return new Cell(mx*TOTAL_SIZE, my*TOTAL_SIZE, ROAD_HEIGHT/2f, w, h, ROAD_HEIGHT, 24, 24, 24);
+}
+
+ArrayList<Cell> cellsFromScanner(Scanner s) {
+    ArrayList<Cell> cells = new ArrayList<Cell>();
     
-    final float originX = (topLeft.x + bottomRight.x)/2f;
-    final float originY = (topLeft.y + bottomRight.y)/2f;
-    
-    return new PVector(originX, originY, 0f);
-}
-
-Cell newGrassCell(float x, float y) {
-    return new Cell(x*CUBE_SIZE, y*CUBE_SIZE, GRASS_HEIGHT/2f, CUBE_SIZE, CUBE_SIZE, GRASS_HEIGHT, 35, 198, 87);
-}
-
-Cell newWaterCell(float x, float y) {
-    return new Cell(x*CUBE_SIZE, y*CUBE_SIZE, -WATER_DEPTH/2f, CUBE_SIZE, CUBE_SIZE, WATER_DEPTH, 60, 139, 238);
-}
-
-Cell newBuildingCell(float x, float y, float d) {
-    return new Cell(x*CUBE_SIZE, y*CUBE_SIZE, CUBE_SIZE*d/2f, CUBE_SIZE, CUBE_SIZE, CUBE_SIZE*d, 176, 146, 208);
-}
-
-Cell newRoadCell(float x, float y) {
-    return new Cell(x*CUBE_SIZE, y*CUBE_SIZE, ROAD_HEIGHT/2f, CUBE_SIZE, CUBE_SIZE, ROAD_HEIGHT, 24, 24, 24);
-}
-
-Cell[][] cellsFromScanner(Scanner s) {
     final int w = s.nextInt();
     final int h = s.nextInt();
-    Cell[][] cells = new Cell[w][h];
+    cells.add(roadBlock(0, 0, w, h));
     
-    s.nextLine();
-    for(int y=0; y<h; y++) {
-        String line = s.nextLine();
-        for(int x=0; x<w; x++) {
-            char c = line.charAt(x);
-            switch(c) {
-            case 'g':
-                cells[x][y] = newGrassCell(x,y);
-                break;
-            case '.':
-                cells[x][y] = newRoadCell(x,y);
-                break;
-            case 'w':
-                cells[x][y] = newWaterCell(x,y);
-                break;
-            default:
-                int d;
-                if(c<='9')
-                    d = c-'0';
-                else
-                    d = c-'A'+10;
-                cells[x][y] = newBuildingCell(x,y,d);
-                break;
-            }
+    while(s.hasNextInt()) {
+        int x1 = s.nextInt();
+        int y1 = s.nextInt();
+        int x2 = s.nextInt();
+        int y2 = s.nextInt();
+        
+        String cellStr = s.next();
+
+        switch(cellStr) {
+        case "g": //grass
+            cells.add(grassBlock(x1, y1, x2, y2));
+            break;
+        case "w": //water
+            cells.add(waterBlock(x1, y1, x2, y2));
+            break;
+        default: //buildings
+            int d;
+            char c = cellStr.charAt(0);
+            if(c<='9')
+                d = c-'0';
+            else
+                d = c-'A'+10;
+            cells.add(buildingBlock(x1, y1, x2, y2, d));
+            break;
         }
+        
     }
 
     return cells;
 }
 
-Cell[][] cellsFromFile(String path) {
+ArrayList<Cell> cellsFromFile(String path) {
     Scanner s = null;
     path = dataPath(path);
     try {        
@@ -104,7 +120,7 @@ Cell[][] cellsFromFile(String path) {
         return null;
     }
      
-    Cell[][] cells = cellsFromScanner(s);
+    ArrayList<Cell> cells = cellsFromScanner(s);
     s.close();
     return cells;
 }
@@ -112,16 +128,16 @@ Cell[][] cellsFromFile(String path) {
 
 // Global variables
 PeasyCam cam;
-Cell[][] cells;
+ArrayList<Cell> cells;
 PVector center;
 
 void setup() {
     size(600, 600, P3D);
-    cells = cellsFromFile("example_cities/city2.txt");
-    
+    cells = cellsFromFile("example_cities/city3.txt");
+    smooth(2);
     center = findCenter(cells);
     
-    cam = new PeasyCam(this, center.x, center.y, center.z, 1500f);
+    cam = new PeasyCam(this, center.x, center.y, center.z, TOTAL_SIZE*100f);
     cam.rotateX(-0.7f);
     cam.setSuppressRollRotationMode();
     
@@ -129,17 +145,16 @@ void setup() {
 }
 
 void draw() {
-    background(255);
+    background(75, 79, 83);
 
-    pointLight(64, 64, 64, center.x, center.y, 1500);
-    pointLight(64, 64, 64, 2*center.x, 2*center.y, 1500);
-    pointLight(64, 64, 64, 0, 0, 1500);
-    pointLight(64, 64, 64, center.x, 2*center.y+CUBE_SIZE, 1500);
-    pointLight(64, 64, 64, 2*center.x+CUBE_SIZE, center.y, 1500);
+    final float intensity = 48f;
+    pointLight(intensity, intensity, intensity, center.x, center.y, TOTAL_SIZE*100f);
+    pointLight(intensity, intensity, intensity, 2*center.x, 2*center.y, TOTAL_SIZE*100f);
+    pointLight(intensity, intensity, intensity, 0, 0, TOTAL_SIZE*100f);
+    pointLight(intensity, intensity, intensity, center.x, 2*center.y+TOTAL_SIZE, TOTAL_SIZE*100f);
+    pointLight(intensity, intensity, intensity, 2*center.x+TOTAL_SIZE, center.y, TOTAL_SIZE*100f);
     
-    for(Cell[] row : cells) {
-        for(Cell cell : row) {
-            cell.draw();
-        }
+    for(Cell cell : cells) {
+        cell.draw();
     }
 }
