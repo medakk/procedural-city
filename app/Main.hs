@@ -36,7 +36,11 @@ args = Args
     <*> depthParser
 
 printCity :: Args -> IO ()
-printCity (Args width height depth) =
+printCity (Args width height depth) = do
+    putStr $ show width
+    putStr " "
+    putStr $ show height
+    putStrLn ""
     cityToStr <$> genCity (0, 0) (width, height) depth >>= putStrLn
 
 main :: IO ()
