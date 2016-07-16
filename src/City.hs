@@ -1,22 +1,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module City
-    (
-        genCity
+    (   genCity
       , cityToStr
       , cityMeshToStr
     ) where
 
--- import Data.Random.Normal (normalsIO)
+import Data.Random.Normal (normalIO)
 import System.Random (randomRIO, randomIO)
 import Control.Monad (join)
-import Data.List (intercalate, sortOn, foldl')
+import Data.List (intercalate, sortOn)
 import Data.Char (ord, chr)
 
 type Vec2D = (Int, Int)
 
 data Cell =
-      Grass
+      NoCell
+    | Grass
     | Water
     | Building { height :: Int }
     deriving (Eq, Show)
@@ -39,18 +39,6 @@ randomPoint (x1, y1) (x2, y2) = do
     ry <- randomRIO (y1+1, y2-1)
     return (rx, ry)
 
--- | Takes a bunch of probabilities and their respective
---   events and makes a cumulative list of them
---   Ex: [(10, "Eat"), (14, "Play"), (76, "Sleep")] becomes
---       [(10, "Eat"), (24, "Play"), (100, "Sleep")]
-cumulativeProbs
-    :: (Fractional a, Ord a)
-    => [(a, b)] -- ^ Input probabilities
-    -> [(a, b)] -- ^ Output probabilities
-cumulativeProbs probs = foldl' go [head sortedProbs] (tail sortedProbs)
-    where go xs (x,y) = xs ++ [(fst (last xs) + x, y)]
-          sortedProbs = sortOn fst probs
-
 -- | Selects an object in a (Probability,Event) list according
 --   to the given probability value
 selectProb
@@ -59,12 +47,12 @@ selectProb
     -> [(a, b)]
     -> b
 selectProb prob probEvents =
-    go (cumulativeProbs probEvents)
-    where go [(_, event)] = event
-          go ((eventProb, event):rest)
-            | prob<=eventProb = event
-            | otherwise = go rest
-          go [] = error "selectProb: Empty list received"
+    go prob (sortOn fst probEvents)
+    where go p [(_, event)] = event
+          go p ((eventProb, event):rest)
+            | p<=eventProb = event
+            | otherwise = go (p-eventProb) rest
+          go _ [] = error "selectProb: Empty list received"
 
 -- | Randomly selects an object according to the probabilities
 randomSelect
@@ -75,6 +63,18 @@ randomSelect probEvents = do
     let total = sum $ map fst probEvents
     return $ selectProb (r*total) probEvents
 
+-- | Cap a value within a range
+cap
+    :: (Num a, Ord a)
+    => a -- ^ Value to be capped
+    -> a -- ^ Lower bound
+    -> a -- ^ Upper bound
+    -> a -- ^ Capped value
+cap val lb ub
+    | val<=lb = lb
+    | val>=ub = ub
+    | otherwise = val
+
 buildingMinHt, buildingMaxHt :: Int
 buildingMinHt = 1
 buildingMaxHt = 18
@@ -82,7 +82,9 @@ buildingMaxHt = 18
 -- | Return a random building
 randomBuilding :: IO Cell
 randomBuilding = do
-    ht <- randomRIO (buildingMinHt, buildingMaxHt)
+    (r :: Float) <- normalIO
+    let mean = fromIntegral $ (buildingMinHt + buildingMaxHt) `div` 2
+        ht = cap (round $ r*(10/3) + mean) buildingMinHt buildingMaxHt
     return $ Building ht
 
 -- | Return a Grass cell
@@ -95,7 +97,7 @@ water = return Water
 
 -- | Probabilities of obtaining cells
 cellProbs :: [(Float, IO Cell)]
-cellProbs = [(15.0, grass), (10.0, water), (75.0, randomBuilding)]
+cellProbs = [(15.0, grass), (5.0, water), (80.0, randomBuilding)]
 
 -- | Return a random cell
 randomCell :: IO Cell
@@ -142,21 +144,8 @@ cellToChar Water = 'w'
 cellToChar (Building ht)
     | ht<10 = show ht !! 0
     | otherwise = chr $ ord 'A' + ht - 10
+cellToChar NoCell = error "cellToChar: Trying to convert NoCell to char"
 
--- | Returns a character to print depending on the
---   city's contents at a given point
-{--
-cityPosToChar
-    :: City  -- ^ The city
-    -> Vec2D -- ^ The point
-    -> Char  -- ^ A character representation
-cityPosToChar (City p1 p2 cell subcities) p =
-    case pointOnBoundary p p1 p2 of
-        True  -> '.'
-        False -> if subcities==[]
-                    then cellToChar cell
-                    else cityPosToChar (cityContainingPoint subcities p) p
---}
 cityPosToChar
     :: City  -- ^ The city
     -> Vec2D -- ^ The point
@@ -188,7 +177,6 @@ vec2DToStr
 vec2DToStr (x, y) = show x ++ " " ++ show y
 
 -- | Converts a city to its meshed string representation
---   mode
 cityMeshToStr
     :: City   -- ^ The city
     -> String -- ^ String mesh
@@ -203,11 +191,11 @@ genCity
     -> Vec2D    -- ^ Bottom-right corner
     -> Int      -- ^ Number of subdivisions
     -> IO City  -- ^ Generated city
-genCity p1 p2 0 = randomCell >>= \cell -> return $ City p1 p2 cell []
+genCity p1 p2 0 = (\cell -> City p1 p2 cell []) <$> randomCell
 genCity p1@(x1,y1) p2@(x2,y2) subd = do
     r@(rx, ry) <- randomPoint p1 p2
     c1 <- genCity p1 r (subd - 1)
     c2 <- genCity (rx, y1) (x2, ry) (subd - 1)
     c3 <- genCity (x1, ry) (rx, y2) (subd - 1)
     c4 <- genCity r p2 (subd - 1)
-    randomCell >>= \cell -> return $ City p1 p2 cell [c1, c2, c3, c4]
+    return $ City p1 p2 NoCell [c1, c2, c3, c4]

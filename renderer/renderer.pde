@@ -76,7 +76,7 @@ ArrayList<Cell> cellsFromScanner(Scanner s) {
     
     final int w = s.nextInt();
     final int h = s.nextInt();
-    cells.add(roadBlock(0, 0, w, h));
+    cells.add(roadBlock(0, 0, w+1, h+1));
     
     while(s.hasNextInt()) {
         int x1 = s.nextInt();
@@ -134,7 +134,7 @@ PVector center;
 void setup() {
     size(600, 600, P3D);
     cells = cellsFromFile("example_cities/city3.txt");
-    smooth(2);
+    smooth(0);
     center = findCenter(cells);
     
     cam = new PeasyCam(this, center.x, center.y, center.z, TOTAL_SIZE*100f);
@@ -154,6 +154,7 @@ void draw() {
     pointLight(intensity, intensity, intensity, center.x, 2*center.y+TOTAL_SIZE, TOTAL_SIZE*100f);
     pointLight(intensity, intensity, intensity, 2*center.x+TOTAL_SIZE, center.y, TOTAL_SIZE*100f);
     
+
     for(Cell cell : cells) {
         cell.draw();
     }
