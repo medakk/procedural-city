@@ -8,23 +8,27 @@ module City
 
 -- import Data.Random.Normal (normalsIO)
 import System.Random (randomRIO, randomIO)
-import Data.List (intercalate)
+import Control.Monad (join)
+import Data.List (intercalate, sortOn, foldl')
+import Data.Char (ord, chr)
 
 type Vec2D = (Int, Int)
 
 data Cell =
       Grass
-    | Building Int
+    | Water
+    | Building { height :: Int }
     deriving (Eq, Show)
 
 data City = 
-    City {   topLeft   :: Vec2D
-           , topRight  :: Vec2D
-           , cellType  :: Cell
-           , subCities :: [City] }
+    City {   topLeft      :: Vec2D
+           , bottomRight  :: Vec2D
+           , cellType     :: Cell
+           , subCities    :: [City] }
     deriving (Eq, Show)
 
--- | Return a random point between two points
+-- | Return a random point between the
+--   rectangle formed by two points
 randomPoint
     :: Vec2D    -- ^ One of the points
     -> Vec2D    -- ^ The other point
@@ -34,9 +38,45 @@ randomPoint (x1, y1) (x2, y2) = do
     ry <- randomRIO (y1+1, y2-1)
     return (rx, ry)
 
+-- | Takes a bunch of probabilities and their respective
+--   events and makes a cumulative list of them
+--   Ex: [(10, "Eat"), (14, "Play"), (76, "Sleep")] becomes
+--       [(10, "Eat"), (24, "Play"), (100, "Sleep")]
+cumulativeProbs
+    :: (Fractional a, Ord a)
+    => [(a, b)] -- ^ Input probabilities
+    -> [(a, b)] -- ^ Output probabilities
+cumulativeProbs probs = foldl' go [head sortedProbs] (tail sortedProbs)
+    where go xs (x,y) = xs ++ [(fst (last xs) + x, y)]
+          sortedProbs = sortOn fst probs
+
+-- | Selects an object in a (Probability,Event) list according
+--   to the given probability value
+selectProb
+    :: (Fractional a, Ord a)
+    => a
+    -> [(a, b)]
+    -> b
+selectProb prob probEvents =
+    go (cumulativeProbs probEvents)
+    where go [(_, event)] = event
+          go ((eventProb, event):rest)
+            | prob<=eventProb = event
+            | otherwise = go rest
+          go [] = error "selectProb: Empty list received"
+
+-- | Randomly selects an object according to the probabilities
+randomSelect
+    :: [(Float, b)]
+    -> IO b
+randomSelect probEvents = do
+    (r :: Float) <- randomIO
+    let total = sum $ map fst probEvents
+    return $ selectProb (r*total) probEvents
+
 buildingMinHt, buildingMaxHt :: Int
 buildingMinHt = 1
-buildingMaxHt = 6
+buildingMaxHt = 18
 
 -- | Return a random building
 randomBuilding :: IO Cell
@@ -44,13 +84,21 @@ randomBuilding = do
     ht <- randomRIO (buildingMinHt, buildingMaxHt)
     return $ Building ht
 
+-- | Return a Grass cell
+grass :: IO Cell
+grass = return Grass
+
+-- | Return a Water cell
+water :: IO Cell
+water = return Water
+
+-- | Probabilities of obtaining cells
+cellProbs :: [(Float, IO Cell)]
+cellProbs = [(15.0, grass), (10.0, water), (75.0, randomBuilding)]
+
 -- | Return a random cell
 randomCell :: IO Cell
-randomCell = do
-    (r :: Float) <- randomIO
-    if r<0.1 -- 10% chance of being grass
-        then return Grass
-        else randomBuilding
+randomCell = join $ randomSelect cellProbs
 
 -- | Returns true if the first point is on the
 --   boundary formed by the rectangle bounded
@@ -79,17 +127,20 @@ cityContainingPoint
     :: [City]
     -> Vec2D
     -> City
-cityContainingPoint [c] p = c
 cityContainingPoint (c@(City p1 p2 _ _) : rest) p
     | pointInsideOrOnBoundary p p1 p2 = c
     | otherwise = cityContainingPoint rest p
+cityContainingPoint [] _ = error "cityContainingPoint: No city found"
 
 -- | Character representation of the Cell
 cellToChar
     :: Cell
     -> Char
-cellToChar Grass = 'G'
-cellToChar (Building ht) = show ht !! 0
+cellToChar Grass = 'g'
+cellToChar Water = 'w'
+cellToChar (Building ht)
+    | ht<10 = show ht !! 0
+    | otherwise = chr $ ord 'A' + ht - 10
 
 -- | Returns a character to print depending on the
 --   city's contents at a given point
