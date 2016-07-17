@@ -111,7 +111,6 @@ ArrayList<Cell> cellsFromScanner(Scanner s) {
 
 ArrayList<Cell> cellsFromFile(String path) {
     Scanner s = null;
-    path = dataPath(path);
     try {        
         File f = new File(path);
         s = new Scanner(f);
@@ -133,7 +132,11 @@ PVector center;
 
 void setup() {
     size(600, 600, P3D);
-    cells = cellsFromFile("example_cities/city3.txt");
+    
+    if(args.length != 0)
+        cells = cellsFromFile(args[0]);
+    else
+        cells = cellsFromFile(dataPath("example_cities/city3.txt"));
     smooth(0);
     center = findCenter(cells);
     
