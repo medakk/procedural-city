@@ -1,2 +1,2 @@
-#!/usr/bin/bash
-make ARGS="$*" render
+#!/bin/bash
+processing-java --sketch="./renderer/" --run $*

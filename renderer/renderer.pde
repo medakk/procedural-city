@@ -137,7 +137,7 @@ void setup() {
         cells = cellsFromFile(args[0]);
     else
         cells = cellsFromFile(dataPath("example_cities/city3.txt"));
-    smooth(0);
+    smooth(2);
     center = findCenter(cells);
     
     cam = new PeasyCam(this, center.x, center.y, center.z, TOTAL_SIZE*100f);

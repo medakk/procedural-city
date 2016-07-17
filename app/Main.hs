@@ -1,7 +1,6 @@
 module Main where
 
 import Options.Applicative
-import System.IO (hPutStrLn, stderr)
 import City
 
 data Args = Args
@@ -51,10 +50,6 @@ printCity (Args w h d m) = do
     if m
         then putStrLn $ cityMeshToStr city
         else putStrLn $ cityToStr city
-
-    -- For debugging only! Prints the cityToStr result
-    -- to stderr
-    hPutStrLn stderr $ cityToStr city
 
 main :: IO ()
 main = execParser opts >>= printCity
